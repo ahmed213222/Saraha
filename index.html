@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة عجلة الحظ</title>
+    <title>عجلة الحظ المصرية</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,14 +44,14 @@
 <body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
 
     <div id="game-container" class="w-full max-w-md mx-auto text-center">
-        <h1 class="text-4xl font-bold text-cyan-400 mb-4">عجلة الحظ</h1>
-        <p class="text-gray-400 mb-6">أضف لاعبين ثم لف العجلة!</p>
+        <h1 class="text-4xl font-bold text-cyan-400 mb-4">يلا نلعب سوا</h1>
+        <p class="text-gray-400 mb-6">زود صحابك وادّيها لفة!</p>
 
         <!-- منطقة إضافة اللاعبين -->
         <div id="player-setup" class="mb-6">
             <div class="flex gap-2">
-                <input type="text" id="player-name" placeholder="أدخل اسم اللاعب..." class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                <button id="add-player-btn" class="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-5 rounded-lg transition-colors duration-300">إضافة</button>
+                <input type="text" id="player-name" placeholder="اكتب اسم الأنتيم..." class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <button id="add-player-btn" class="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-5 rounded-lg transition-colors duration-300">زود صاحبك</button>
             </div>
             <div id="player-list" class="mt-4 flex flex-wrap justify-center gap-2">
                 <!-- أسماء اللاعبين ستظهر هنا -->
@@ -66,7 +66,7 @@
 
         <!-- زر لف العجلة -->
         <button id="spin-btn" class="bg-red-500 hover:bg-red-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 px-10 rounded-full text-2xl shadow-lg transform hover:scale-105 transition-all duration-300">
-            لف العجلة!
+            ادّيها لفة!
         </button>
     </div>
 
@@ -78,8 +78,8 @@
                 <!-- محتوى السؤال أو الحكم -->
             </div>
             <div id="modal-actions" class="mt-6 flex justify-center gap-4">
-                 <button id="dare-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300">نفذ حكماً</button>
-                <button id="close-modal-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300">إغلاق</button>
+                 <button id="dare-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300">مش عايز؟ نفذ حكم</button>
+                <button id="close-modal-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300">تمام كده</button>
             </div>
         </div>
     </div>
@@ -113,7 +113,6 @@
         let audioContext;
         let tickSoundEnabled = true;
         
-        // وظيفة لتهيئة سياق الصوت (يجب أن يتم استدعاؤها بواسطة إجراء مستخدم)
         function initAudio() {
             if (!audioContext) {
                 try {
@@ -125,7 +124,6 @@
             }
         }
 
-        // وظيفة لتشغيل صوت التكتكة
         function playTick() {
             if (!tickSoundEnabled || !audioContext || audioContext.state !== 'running') return;
             const oscillator = audioContext.createOscillator();
@@ -135,7 +133,7 @@
             gainNode.connect(audioContext.destination);
             
             oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 note
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
             gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
             
             gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.05);
@@ -200,7 +198,7 @@
                 drawRouletteWheel();
                 savePlayersToLocalStorage();
             } else if (players.length >= 10) {
-                alert("لا يمكن إضافة أكثر من 10 لاعبين.");
+                alert("ماينفعش أكتر من 10 لاعيبة.");
             }
         }
 
@@ -244,7 +242,7 @@
 
         function spin() {
             if (isSpinning) return;
-            initAudio(); // تهيئة الصوت عند أول ضغطة
+            initAudio();
             if(audioContext && audioContext.state === 'suspended') {
                 audioContext.resume();
             }
@@ -266,10 +264,9 @@
             const spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
             startAngle += (spinAngle * Math.PI / 180);
             
-            // تشغيل صوت التكتكة بشكل متناسب مع السرعة
             const currentTime = Date.now();
             const speed = spinAngle;
-            if(currentTime - lastTickTime > 600 / (speed + 1)) { // يقلل الفاصل الزمني كلما زادت السرعة
+            if(currentTime - lastTickTime > 600 / (speed + 1)) {
                  playTick();
                  lastTickTime = currentTime;
             }
@@ -292,24 +289,24 @@
         
         // --- وظائف عرض النتائج وواجهة برمجة التطبيقات ---
         async function showResult(winner) {
-            modalTitle.textContent = `حان دورك يا ${winner}!`;
+            modalTitle.textContent = `جت فيك يا ${winner}!`;
             modalContent.innerHTML = `
                 <div class="flex flex-col items-center">
                     <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-                    <p>جاري تحضير سؤال أو حكم...</p>
+                    <p>بنحضرلك سؤال على ما قسم...</p>
                 </div>
                 <style>.loader{border-top-color: #3498db !important; animation: spinner 1.5s linear infinite;} @keyframes spinner{0%{transform: rotate(0deg);}100%{transform: rotate(360deg);}}</style>
             `;
-            dareBtn.style.display = 'none'; // إخفاء زر الحكم مبدئياً
+            dareBtn.style.display = 'none';
             resultModal.classList.remove('hidden');
             
             currentChallenge = await fetchQuestionAndDare();
 
             if (currentChallenge.question) {
                 modalContent.textContent = currentChallenge.question;
-                dareBtn.style.display = 'inline-block'; // إظهار زر الحكم
+                dareBtn.style.display = 'inline-block';
             } else {
-                modalContent.textContent = "لم أستطع اقتراح شيء الآن. اختر حكماً بنفسك!";
+                modalContent.textContent = "النت فصل يا معلم. اختاروا حكم بمعرفتكم!";
             }
         }
 
@@ -317,7 +314,7 @@
             const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             
-            const prompt = "أنت مساعد في لعبة جماعية. أريدك أن تنشئ سؤالاً شخصياً وحكماً مضحكاً. قدم الإجابة بصيغة JSON فقط بدون أي نص إضافي. يجب أن يحتوي الـ JSON على مفتاحين: 'question' للسؤال و 'dare' للحكم. يجب أن تكون النصوص باللغة العربية.";
+            const prompt = "أنت مساعد في لعبة صراحة وأحكام مصرية أصيلة. هدفك توليد أسئلة وأحكام باللهجة المصرية العامية تكون مضحكة ومناسبة لقاعدة شباب. قدم الإجابة بصيغة JSON فقط بدون أي نص إضافي. الـ JSON لازم يحتوي على مفتاحين: 'question' للسؤال، و 'dare' للحكم. خلي الأسئلة والأحكام ليها طابع مصري.";
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
@@ -341,7 +338,7 @@
 
             } catch (error) {
                 console.error("Error fetching from Gemini API:", error);
-                return { question: "حدث خطأ أثناء الاتصال. ما هو أغرب حلم حلمت به؟", dare: "قم بتقليد صوت حيوان من اختيار اللاعبين الآخرين." };
+                return { question: "النت فصل يا معلم. قولنا إيه أكتر موقف محرج حصلك في مواصلات؟", dare: "قلد بياع أنابيب أو بياع روبابيكيا لمدة 30 ثانية." };
             }
         }
         
@@ -352,7 +349,7 @@
         });
         
         spinBtn.addEventListener('click', spin);
-        canvas.addEventListener('click', spin); // يمكن الضغط على العجلة نفسها للبدء
+        canvas.addEventListener('click', spin);
 
         closeModalBtn.addEventListener('click', () => {
             resultModal.classList.add('hidden');
@@ -361,7 +358,7 @@
         dareBtn.addEventListener('click', () => {
             if (currentChallenge.dare) {
                 modalContent.textContent = currentChallenge.dare;
-                dareBtn.style.display = 'none'; // إخفاء الزر بعد استخدامه
+                dareBtn.style.display = 'none';
             }
         });
 
