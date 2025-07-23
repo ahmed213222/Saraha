@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة عجلة الحظ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            touch-action: manipulation; /* Prevents double-tap zoom on mobile */
+        }
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            cursor: pointer;
+        }
+        .pointer {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 35px solid #ef4444; /* red-500 */
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div id="game-container" class="w-full max-w-md mx-auto text-center">
+        <h1 class="text-4xl font-bold text-cyan-400 mb-4">عجلة الحظ</h1>
+        <p class="text-gray-400 mb-6">أضف لاعبين ثم لف العجلة!</p>
+
+        <!-- منطقة إضافة اللاعبين -->
+        <div id="player-setup" class="mb-6">
+            <div class="flex gap-2">
+                <input type="text" id="player-name" placeholder="أدخل اسم اللاعب..." class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <button id="add-player-btn" class="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-5 rounded-lg transition-colors duration-300">إضافة</button>
+            </div>
+            <div id="player-list" class="mt-4 flex flex-wrap justify-center gap-2">
+                <!-- أسماء اللاعبين ستظهر هنا -->
+            </div>
+        </div>
+
+        <!-- منطقة العجلة -->
+        <div id="wheel-container" class="relative w-full max-w-sm mx-auto flex items-center justify-center mb-6">
+            <div class="pointer"></div>
+            <canvas id="wheel-canvas" width="400" height="400"></canvas>
+        </div>
+
+        <!-- زر لف العجلة -->
+        <button id="spin-btn" class="bg-red-500 hover:bg-red-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 px-10 rounded-full text-2xl shadow-lg transform hover:scale-105 transition-all duration-300">
+            لف العجلة!
+        </button>
+    </div>
+
+    <!-- نافذة عرض السؤال/الحكم -->
+    <div id="result-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-lg text-center border-2 border-cyan-500 fade-in">
+            <h2 id="modal-title" class="text-2xl font-bold text-cyan-400 mb-4"></h2>
+            <div id="modal-content" class="text-lg text-white min-h-[100px] flex items-center justify-center p-4 bg-gray-900/50 rounded-lg">
+                <!-- محتوى السؤال أو الحكم -->
+            </div>
+            <div id="modal-actions" class="mt-6 flex justify-center gap-4">
+                 <button id="dare-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300">نفذ حكماً</button>
+                <button id="close-modal-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- إعدادات اللعبة الأساسية ---
+        const canvas = document.getElementById('wheel-canvas');
+        const ctx = canvas.getContext('2d');
+        const playerNameInput = document.getElementById('player-name');
+        const addPlayerBtn = document.getElementById('add-player-btn');
+        const playerListDiv = document.getElementById('player-list');
+        const spinBtn = document.getElementById('spin-btn');
+        const resultModal = document.getElementById('result-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        const modalActions = document.getElementById('modal-actions');
+        const dareBtn = document.getElementById('dare-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+        let players = [];
+        const colors = ["#16a34a", "#ca8a04", "#6d28d9", "#db2777", "#2563eb", "#ea580c", "#0891b2", "#be185d", "#4d7c0f", "#4338ca"];
+        
+        let startAngle = 0;
+        let spinAngleStart = 0;
+        let spinTime = 0;
+        let spinTimeTotal = 0;
+        let isSpinning = false;
+        let currentChallenge = {};
+
+        // --- إعدادات الصوت ---
+        let audioContext;
+        let tickSoundEnabled = true;
+        
+        // وظيفة لتهيئة سياق الصوت (يجب أن يتم استدعاؤها بواسطة إجراء مستخدم)
+        function initAudio() {
+            if (!audioContext) {
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.error("Web Audio API is not supported in this browser.");
+                    tickSoundEnabled = false;
+                }
+            }
+        }
+
+        // وظيفة لتشغيل صوت التكتكة
+        function playTick() {
+            if (!tickSoundEnabled || !audioContext || audioContext.state !== 'running') return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 note
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.05);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.05);
+        }
+
+        // --- وظائف الرسم على العجلة ---
+        function drawRouletteWheel() {
+            if (!canvas.getContext) return;
+            
+            const numSegments = players.length || 1;
+            const arcSize = (2 * Math.PI) / numSegments;
+            const outsideRadius = canvas.width / 2 - 10;
+            const textRadius = outsideRadius * 0.75;
+            const insideRadius = 25;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+            ctx.font = 'bold 16px Cairo';
+
+            for (let i = 0; i < players.length; i++) {
+                const angle = startAngle + i * arcSize;
+                ctx.fillStyle = colors[i % colors.length];
+
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2, outsideRadius, angle, angle + arcSize, false);
+                ctx.arc(canvas.width / 2, canvas.height / 2, insideRadius, angle + arcSize, angle, true);
+                ctx.stroke();
+                ctx.fill();
+
+                ctx.save();
+                ctx.fillStyle = "white";
+                ctx.translate(canvas.width / 2 + Math.cos(angle + arcSize / 2) * textRadius,
+                              canvas.height / 2 + Math.sin(angle + arcSize / 2) * textRadius);
+                ctx.rotate(angle + arcSize / 2 + Math.PI / 2);
+                const text = players[i];
+                ctx.fillText(text, -ctx.measureText(text).width / 2, 0);
+                ctx.restore();
+            }
+        }
+        
+        // --- وظائف إدارة اللاعبين وتخزينهم ---
+        function savePlayersToLocalStorage() {
+            localStorage.setItem('spinTheWheelPlayers', JSON.stringify(players));
+        }
+
+        function loadPlayersFromLocalStorage() {
+            const savedPlayers = localStorage.getItem('spinTheWheelPlayers');
+            if (savedPlayers) {
+                players = JSON.parse(savedPlayers);
+            }
+        }
+
+        function addPlayer() {
+            const name = playerNameInput.value.trim();
+            if (name && players.length < 10) {
+                players.push(name);
+                playerNameInput.value = '';
+                updatePlayerList();
+                drawRouletteWheel();
+                savePlayersToLocalStorage();
+            } else if (players.length >= 10) {
+                alert("لا يمكن إضافة أكثر من 10 لاعبين.");
+            }
+        }
+
+        function updatePlayerList() {
+            playerListDiv.innerHTML = '';
+            players.forEach((player, index) => {
+                const playerTag = document.createElement('span');
+                playerTag.className = 'text-sm font-semibold px-3 py-1 rounded-full flex items-center';
+                playerTag.style.backgroundColor = colors[index % colors.length];
+                playerTag.style.color = 'white';
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = 'x';
+                removeBtn.className = 'ml-2 font-bold hover:text-red-300 text-xs';
+                removeBtn.onclick = () => removePlayer(index);
+
+                playerTag.textContent = player;
+                playerTag.appendChild(removeBtn);
+                playerListDiv.appendChild(playerTag);
+            });
+            toggleSpinButton();
+        }
+        
+        function removePlayer(indexToRemove) {
+            players.splice(indexToRemove, 1);
+            updatePlayerList();
+            drawRouletteWheel();
+            savePlayersToLocalStorage();
+        }
+
+        function toggleSpinButton() {
+            spinBtn.disabled = players.length < 2;
+        }
+
+        // --- وظائف دوران العجلة ---
+        function easeOut(t, b, c, d) {
+            const ts = (t /= d) * t;
+            const tc = ts * t;
+            return b + c * (tc + -3 * ts + 3 * t);
+        }
+
+        function spin() {
+            if (isSpinning) return;
+            initAudio(); // تهيئة الصوت عند أول ضغطة
+            if(audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            isSpinning = true;
+            spinBtn.disabled = true;
+            spinAngleStart = Math.random() * 10 + 10;
+            spinTime = 0;
+            spinTimeTotal = Math.random() * 4000 + 6000;
+            rotateWheel();
+        }
+        
+        let lastTickTime = 0;
+        function rotateWheel() {
+            spinTime += 20;
+            if (spinTime >= spinTimeTotal) {
+                stopRotateWheel();
+                return;
+            }
+            const spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+            startAngle += (spinAngle * Math.PI / 180);
+            
+            // تشغيل صوت التكتكة بشكل متناسب مع السرعة
+            const currentTime = Date.now();
+            const speed = spinAngle;
+            if(currentTime - lastTickTime > 600 / (speed + 1)) { // يقلل الفاصل الزمني كلما زادت السرعة
+                 playTick();
+                 lastTickTime = currentTime;
+            }
+
+            drawRouletteWheel();
+            requestAnimationFrame(rotateWheel);
+        }
+
+        function stopRotateWheel() {
+            isSpinning = false;
+            spinBtn.disabled = false;
+            
+            const degrees = startAngle * 180 / Math.PI + 90;
+            const arcSize = 360 / (players.length || 1);
+            const index = Math.floor((360 - degrees % 360) / arcSize);
+            const winner = players[index];
+            
+            showResult(winner);
+        }
+        
+        // --- وظائف عرض النتائج وواجهة برمجة التطبيقات ---
+        async function showResult(winner) {
+            modalTitle.textContent = `حان دورك يا ${winner}!`;
+            modalContent.innerHTML = `
+                <div class="flex flex-col items-center">
+                    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+                    <p>جاري تحضير سؤال أو حكم...</p>
+                </div>
+                <style>.loader{border-top-color: #3498db !important; animation: spinner 1.5s linear infinite;} @keyframes spinner{0%{transform: rotate(0deg);}100%{transform: rotate(360deg);}}</style>
+            `;
+            dareBtn.style.display = 'none'; // إخفاء زر الحكم مبدئياً
+            resultModal.classList.remove('hidden');
+            
+            currentChallenge = await fetchQuestionAndDare();
+
+            if (currentChallenge.question) {
+                modalContent.textContent = currentChallenge.question;
+                dareBtn.style.display = 'inline-block'; // إظهار زر الحكم
+            } else {
+                modalContent.textContent = "لم أستطع اقتراح شيء الآن. اختر حكماً بنفسك!";
+            }
+        }
+
+        async function fetchQuestionAndDare() {
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const prompt = "أنت مساعد في لعبة جماعية. أريدك أن تنشئ سؤالاً شخصياً وحكماً مضحكاً. قدم الإجابة بصيغة JSON فقط بدون أي نص إضافي. يجب أن يحتوي الـ JSON على مفتاحين: 'question' للسؤال و 'dare' للحكم. يجب أن تكون النصوص باللغة العربية.";
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`API error! status: ${response.status}`);
+
+                const result = await response.json();
+                const text = result.candidates[0].content.parts[0].text;
+                return JSON.parse(text);
+
+            } catch (error) {
+                console.error("Error fetching from Gemini API:", error);
+                return { question: "حدث خطأ أثناء الاتصال. ما هو أغرب حلم حلمت به؟", dare: "قم بتقليد صوت حيوان من اختيار اللاعبين الآخرين." };
+            }
+        }
+        
+        // --- ربط الأحداث ---
+        addPlayerBtn.addEventListener('click', addPlayer);
+        playerNameInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') addPlayer();
+        });
+        
+        spinBtn.addEventListener('click', spin);
+        canvas.addEventListener('click', spin); // يمكن الضغط على العجلة نفسها للبدء
+
+        closeModalBtn.addEventListener('click', () => {
+            resultModal.classList.add('hidden');
+        });
+
+        dareBtn.addEventListener('click', () => {
+            if (currentChallenge.dare) {
+                modalContent.textContent = currentChallenge.dare;
+                dareBtn.style.display = 'none'; // إخفاء الزر بعد استخدامه
+            }
+        });
+
+        // --- بدء التشغيل ---
+        window.onload = () => {
+            loadPlayersFromLocalStorage();
+            updatePlayerList();
+            drawRouletteWheel();
+            toggleSpinButton();
+        };
+    </script>
+</body>
+</html>
